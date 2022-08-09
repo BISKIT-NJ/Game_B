@@ -22,6 +22,7 @@ BOOL gGameIsRunning; // always starts off as FALSE
 GAMEBITMAP gBackBuffer;
 GAMEPERFDATA gPerformanceData;
 PLAYER gPlayer;
+BOOL gWindowHasFocus;
 
 
 INT __stdcall WinMain(HINSTANCE Instance, HINSTANCE PreviousInstance, 
@@ -78,7 +79,17 @@ INT __stdcall WinMain(HINSTANCE Instance, HINSTANCE PreviousInstance,
         goto Exit;
     }
 
-    SetPriorityClass(ProcessHandle, HIGH_PRIORITY_CLASS);
+    if (SetPriorityClass(ProcessHandle, HIGH_PRIORITY_CLASS) == 0) {
+        MessageBoxA(NULL, "Failed to set process priority!", "Error!",
+            MB_ICONEXCLAMATION | MB_OK);
+        goto Exit;
+    }
+
+    if (SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST) == 0) {
+        MessageBoxA(NULL, "Failed to set thread priority!", "Error!",
+            MB_ICONEXCLAMATION | MB_OK);
+        goto Exit;
+    }
 
     if (CreateMainGameWindow() != ERROR_SUCCESS) { goto Exit; }
 
@@ -183,6 +194,20 @@ LRESULT CALLBACK MainWindowProc(_In_ HWND WindowHandle, _In_ UINT Message,
         case WM_CLOSE: {
             gGameIsRunning = FALSE;
             PostQuitMessage(0);
+            break;
+        }
+        case WM_ACTIVATE: {
+            if (WParam == 0) {
+                // Our window has lost focus
+                gWindowHasFocus = FALSE;
+            }
+            else
+            {
+                // Our window has gained focus
+                ShowCursor(FALSE); // removes cursor from game screen
+                gWindowHasFocus = TRUE;
+            }
+            break;
         }
         default: { Result = DefWindowProcA(WindowHandle, Message, WParam, LParam); }
     }
@@ -278,6 +303,10 @@ BOOL GameIsAlreadyRunning(void) {
 
 void ProcessPlayerInput(void) {
 
+    if (gWindowHasFocus == FALSE) {
+        return;
+    }
+
     int16_t EscapeKeyIsDown = GetAsyncKeyState(VK_ESCAPE);
     int16_t DebugKeyIsDown = GetAsyncKeyState(VK_F1);
     int16_t LeftKeyIsDown = GetAsyncKeyState(VK_LEFT) | GetAsyncKeyState('A');
@@ -297,13 +326,13 @@ void ProcessPlayerInput(void) {
         gPerformanceData.DisplayDebugInfo = !gPerformanceData.DisplayDebugInfo;
     }
 
-    if (LeftKeyIsDown ) {
+    if (LeftKeyIsDown) {
         if (gPlayer.ScreenPosX > 0) {
             gPlayer.ScreenPosX--;
         }
     }
 
-    if (RightKeyIsDown ) {
+    if (RightKeyIsDown) {
         if (gPlayer.ScreenPosX < GAME_RES_WIDTH - 16) {
             gPlayer.ScreenPosX++;
         }
