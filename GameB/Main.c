@@ -21,7 +21,7 @@ HWND gGameWindow; // always starts off as zero-0
 BOOL gGameIsRunning; // always starts off as FALSE
 GAMEBITMAP gBackBuffer;
 GAMEPERFDATA gPerformanceData;
-PLAYER gPlayer;
+HERO gPlayer;
 BOOL gWindowHasFocus;
 
 
@@ -114,8 +114,16 @@ INT __stdcall WinMain(HINSTANCE Instance, HINSTANCE PreviousInstance,
 
     //memset(gBackBuffer.Memory, 0x7F, GAME_DRAWING_AREA_MEMORY_SIZE);
 
+    if (InitializeHero() != ERROR_SUCCESS) {
+        MessageBoxA(NULL, "Failed to initialize hero!", "Error!",
+            MB_ICONEXCLAMATION | MB_OK);
+        goto Exit;
+    }
+
     gPlayer.ScreenPosX = 25;
     gPlayer.ScreenPosY = 25;
+    Load32BppBitmapFromFile("..\\..\\Assets\\Hero_Suit1_Down_Standing.bmpx", 
+        &gPlayer.Sprite[SUIT_0][FACING_DOWN_0]);
 
     gGameIsRunning = TRUE;
 
@@ -277,7 +285,7 @@ DWORD CreateMainGameWindow(void) {
 
     if (SetWindowPos(gGameWindow, HWND_TOP, gPerformanceData.MonitorInfo.rcMonitor.left,
         gPerformanceData.MonitorInfo.rcMonitor.top, gPerformanceData.MonitorWidth, 
-        gPerformanceData.MonitorHeight, SWP_FRAMECHANGED) == 0) {
+        gPerformanceData.MonitorHeight, SWP_NOOWNERZORDER | SWP_FRAMECHANGED) == 0) {
 
         Result = GetLastError();
         goto Exit;
@@ -355,6 +363,67 @@ void ProcessPlayerInput(void) {
     RightKeyWasDown = RightKeyIsDown;
     UpKeyWasDown = UpKeyIsDown;
     DownKeyWasDown = DownKeyIsDown;
+}
+
+DWORD Load32BppBitmapFromFile(_In_ char* FileName, _Inout_ GAMEBITMAP* GameBitmap) {
+    
+    DWORD Error = ERROR_SUCCESS;
+
+    HANDLE FileHandle = INVALID_HANDLE_VALUE;
+
+    WORD BitmapHeader = 0;
+
+    DWORD PixelDataOffset = 0;
+
+    DWORD NumberOfBytesRead = 2;
+
+    if ((FileHandle = CreateFileA(FileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE) {
+
+        Error = GetLastError();
+        goto Exit;
+    }
+
+    if (ReadFile(FileHandle, &BitmapHeader, 2, &NumberOfBytesRead, NULL) == 0) {
+        Error = GetLastError();
+        goto Exit;
+    }
+
+    if (BitmapHeader != 0x4d42) { // 0x4d42 is "BM" backwards
+        Error = ERROR_FILE_INVALID;
+        goto Exit;
+    }
+
+
+
+
+Exit:
+
+    if (FileHandle != INVALID_HANDLE_VALUE) {
+        CloseHandle(FileHandle); // always remember to close the handle when you are done with it
+    }
+
+    return(Error);
+}
+
+DWORD InitializeHero(void) {
+    
+    DWORD Error = ERROR_SUCCESS;
+
+    gPlayer.ScreenPosX = 25;
+    gPlayer.ScreenPosY = 25;
+
+    if ((Error = Load32BppBitmapFromFile("Assets\\Hero_Suit0_Down_Standing.bmpx",
+        &gPlayer.Sprite[SUIT_0][FACING_DOWN_0])) != ERROR_SUCCESS) {
+
+        MessageBoxA(NULL, "Load32BppBitmapFromFile failed!", "Error!",
+            MB_ICONEXCLAMATION | MB_OK);
+        goto Exit;
+    }
+
+Exit:
+
+    return(Error);
 }
 
 void RenderFrameGraphics(void) {
@@ -438,3 +507,4 @@ __forceinline void ClearScreen(_In_ __m128i Color) {
         _mm_store_si128((PIXEL32*)gBackBuffer.Memory + x, Color);
     }
 }
+
