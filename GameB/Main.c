@@ -366,7 +366,6 @@ void ProcessPlayerInput(void) {
 }
 
 DWORD Load32BppBitmapFromFile(_In_ char* FileName, _Inout_ GAMEBITMAP* GameBitmap) {
-    
     DWORD Error = ERROR_SUCCESS;
 
     HANDLE FileHandle = INVALID_HANDLE_VALUE;
@@ -377,56 +376,63 @@ DWORD Load32BppBitmapFromFile(_In_ char* FileName, _Inout_ GAMEBITMAP* GameBitma
 
     DWORD NumberOfBytesRead = 2;
 
-    if ((FileHandle = CreateFileA(FileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE) {
+    if ((FileHandle = CreateFileA(FileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE) {
         Error = GetLastError();
+
         goto Exit;
     }
 
     if (ReadFile(FileHandle, &BitmapHeader, 2, &NumberOfBytesRead, NULL) == 0) {
         Error = GetLastError();
+
         goto Exit;
     }
 
-    if (BitmapHeader != 0x4d42) { // 0x4d42 is "BM" backwards
+    if (BitmapHeader != 0x4d42) { // "BM" backwards 
         Error = ERROR_FILE_INVALID;
+
         goto Exit;
     }
 
     if (SetFilePointer(FileHandle, 0xA, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
         Error = GetLastError();
+
         goto Exit;
     }
 
     if (ReadFile(FileHandle, &PixelDataOffset, sizeof(DWORD), &NumberOfBytesRead, NULL) == 0) {
         Error = GetLastError();
+
         goto Exit;
     }
 
     if (SetFilePointer(FileHandle, 0xE, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
         Error = GetLastError();
+
         goto Exit;
     }
 
-    if (ReadFile(FileHandle, &GameBitmap->BitmapInfo.bmiHeader, sizeof(BITMAPINFOHEADER), 
-        &NumberOfBytesRead, NULL) == 0) {
+    if (ReadFile(FileHandle, &GameBitmap->BitmapInfo.bmiHeader, sizeof(BITMAPINFOHEADER), &NumberOfBytesRead, NULL) == 0) {
         Error = GetLastError();
+
         goto Exit;
     }
 
-    if ((GameBitmap->Memory = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, 
-        GameBitmap->BitmapInfo.bmiHeader.biSizeImage)) == NULL) {
-    Error = ERROR_NOT_ENOUGH_MEMORY;
-    goto Exit;
+    if ((GameBitmap->Memory = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, GameBitmap->BitmapInfo.bmiHeader.biSizeImage)) == NULL) {
+        Error = ERROR_NOT_ENOUGH_MEMORY;
+
+        goto Exit;
     }
 
     if (SetFilePointer(FileHandle, PixelDataOffset, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
         Error = GetLastError();
+
         goto Exit;
     }
 
-    if (ReadFile(FileHandle, &GameBitmap->Memory, GameBitmap->BitmapInfo.bmiHeader.biSizeImage, &NumberOfBytesRead, NULL) == 0) {
+    if (ReadFile(FileHandle, GameBitmap->Memory, GameBitmap->BitmapInfo.bmiHeader.biSizeImage, &NumberOfBytesRead, NULL) == 0) {
         Error = GetLastError();
+
         goto Exit;
     }
 
@@ -447,7 +453,7 @@ DWORD InitializeHero(void) {
     gPlayer.ScreenPosX = 25;
     gPlayer.ScreenPosY = 25;
 
-    if ((Error = Load32BppBitmapFromFile("Assets\\Hero_Suit0_Down_Standing.bmpx",
+    if ((Error = Load32BppBitmapFromFile(".\\Assets\\Hero_Suit0_Down_Standing.bmpx",
         &gPlayer.Sprite[SUIT_0][FACING_DOWN_0])) != ERROR_SUCCESS) {
 
         MessageBoxA(NULL, "Load32BppBitmapFromFile failed!", "Error!",
@@ -460,13 +466,38 @@ Exit:
     return(Error);
 }
 
-void Blit32BppBitmapToBuffer(_In_ GAMEBITMAP* GameBitmap, _In_ uint16_t x, _In_ uint16_t y) {
+void Blit32BppBitmapToBuffer(_In_ GAMEBITMAP* GameBitmap, 
+    _In_ uint16_t x, _In_ uint16_t y) {
     
+    int32_t StartingScreenPixel = ((GAME_RES_WIDTH * GAME_RES_HEIGHT) - GAME_RES_WIDTH) - (GAME_RES_WIDTH * y) + x;
 
+    int32_t StartingBitmapPixel = ((GameBitmap->BitmapInfo.bmiHeader.biWidth * GameBitmap->BitmapInfo.bmiHeader.biHeight) - GameBitmap->BitmapInfo.bmiHeader.biWidth);
 
+    int32_t MemoryOffset = 0;
 
-    
+    int32_t BitmapOffset = 0;
 
+    PIXEL32 BitmapPixel = { 0 };
+
+    PIXEL32 BackgroundPixel = { 0 };
+
+    for (int16_t YPixel = 0; YPixel < GameBitmap->BitmapInfo.bmiHeader.biHeight; YPixel++)
+    {
+        for (int16_t XPixel = 0; XPixel < GameBitmap->BitmapInfo.bmiHeader.biWidth; XPixel++)
+        {
+            MemoryOffset = StartingScreenPixel + XPixel - (GAME_RES_WIDTH * YPixel);
+
+            BitmapOffset = StartingBitmapPixel + XPixel - (GameBitmap->BitmapInfo.bmiHeader.biWidth * YPixel);
+
+            memcpy_s(&BitmapPixel, sizeof(PIXEL32), (PIXEL32*)GameBitmap->Memory + BitmapOffset, sizeof(PIXEL32));
+
+            if (BitmapPixel.Alpha == 255)
+            {
+                memcpy_s((PIXEL32*)gBackBuffer.Memory + MemoryOffset, sizeof(PIXEL32), &BitmapPixel, sizeof(PIXEL32));
+            }
+
+        }
+    }
 }
 
 void RenderFrameGraphics(void) {
@@ -476,7 +507,7 @@ void RenderFrameGraphics(void) {
 
     ClearScreen(QuadPixel);
 
-    int32_t ScreenX = gPlayer.ScreenPosX;
+    /*int32_t ScreenX = gPlayer.ScreenPosX;
     int32_t ScreenY = gPlayer.ScreenPosY;
     int32_t StartingScreenPixel = ((GAME_RES_WIDTH * GAME_RES_HEIGHT) - GAME_RES_WIDTH) - \
         (GAME_RES_WIDTH * ScreenY) + ScreenX;
@@ -486,7 +517,9 @@ void RenderFrameGraphics(void) {
             memset((PIXEL32*)gBackBuffer.Memory + (uintptr_t)StartingScreenPixel + x - \
                 ((uintptr_t)GAME_RES_WIDTH * y), 0xFF, sizeof(PIXEL32));
         }
-    }
+    }*/
+
+    Blit32BppBitmapToBuffer(&gPlayer.Sprite[SUIT_0][FACING_DOWN_0], gPlayer.ScreenPosX, gPlayer.ScreenPosY);
 
     HDC DeviceContext = GetDC(gGameWindow);
 
@@ -550,4 +583,3 @@ __forceinline void ClearScreen(_In_ __m128i Color) {
         _mm_store_si128((PIXEL32*)gBackBuffer.Memory + x, Color);
     }
 }
-
