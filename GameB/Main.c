@@ -450,11 +450,25 @@ DWORD InitializeHero(void) {
     
     DWORD Error = ERROR_SUCCESS;
 
-    gPlayer.ScreenPosX = 25;
-    gPlayer.ScreenPosY = 25;
+    gPlayer.ScreenPosX = 32;
+    gPlayer.ScreenPosY = 32;
 
     if ((Error = Load32BppBitmapFromFile(".\\Assets\\Hero_Suit0_Down_Standing.bmpx",
         &gPlayer.Sprite[SUIT_0][FACING_DOWN_0])) != ERROR_SUCCESS) {
+
+        MessageBoxA(NULL, "Load32BppBitmapFromFile failed!", "Error!",
+            MB_ICONEXCLAMATION | MB_OK);
+        goto Exit;
+    }
+    if ((Error = Load32BppBitmapFromFile(".\\Assets\\Hero_Suit0_Down_Walk1.bmpx",
+        &gPlayer.Sprite[SUIT_0][FACING_DOWN_1])) != ERROR_SUCCESS) {
+
+        MessageBoxA(NULL, "Load32BppBitmapFromFile failed!", "Error!",
+            MB_ICONEXCLAMATION | MB_OK);
+        goto Exit;
+    }
+    if ((Error = Load32BppBitmapFromFile(".\\Assets\\Hero_Suit0_Down_Walk2.bmpx",
+        &gPlayer.Sprite[SUIT_0][FACING_DOWN_2])) != ERROR_SUCCESS) {
 
         MessageBoxA(NULL, "Load32BppBitmapFromFile failed!", "Error!",
             MB_ICONEXCLAMATION | MB_OK);
@@ -491,11 +505,10 @@ void Blit32BppBitmapToBuffer(_In_ GAMEBITMAP* GameBitmap,
 
             memcpy_s(&BitmapPixel, sizeof(PIXEL32), (PIXEL32*)GameBitmap->Memory + BitmapOffset, sizeof(PIXEL32));
 
-            if (BitmapPixel.Alpha == 255)
+            if (BitmapPixel.Alpha == 255) // If the pixel is not 100% alpha, then do not show it.
             {
                 memcpy_s((PIXEL32*)gBackBuffer.Memory + MemoryOffset, sizeof(PIXEL32), &BitmapPixel, sizeof(PIXEL32));
             }
-
         }
     }
 }
